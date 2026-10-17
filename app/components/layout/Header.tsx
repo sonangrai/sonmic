@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button, Input, Text, buttonClassNames } from "sonahang-ui";
 import { HomeIcon, MicIcon, SearchIcon } from "../icons";
+import { ThemeMenu } from "./ThemeMenu";
 import "./header.css";
 
 type HeaderProps = {
@@ -42,6 +43,8 @@ export function Header({ search, onAdd }: HeaderProps) {
           onChange={(e) => search.onChange(e.target.value)}
         />
       )}
+
+      <ThemeMenu />
 
       {onAdd && (
         <Button variant="secondary" size="sm" className="app-header-add" onClick={onAdd}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AudioPlayer, Button, Drawer, EmptyState, Text } from "sonahang-ui";
+import { AudioPlayer, Button, Dialog, Drawer, EmptyState, Text } from "sonahang-ui";
 import { deleteAudio, listAudio, type SavedAudio } from "@/lib/audioStore";
 import { formatDate, formatSize } from "@/lib/format";
 import { AddAudioForm } from "../components/AddAudioForm";
@@ -18,6 +18,8 @@ export function Player() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SavedAudio | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -59,10 +61,25 @@ export function Player() {
     setCurrentId(items[next].id);
   }
 
-  async function remove(id: string) {
-    await deleteAudio(id);
-    if (id === currentId) setCurrentId(null);
-    setItems((prev) => prev.filter((i) => i.id !== id));
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const { id } = pendingDelete;
+    setDeleting(true);
+    try {
+      await deleteAudio(id);
+      if (id === currentId) {
+        // The player unmounts with the track, so no pause event will arrive.
+        setCurrentId(null);
+        setPlaying(false);
+      }
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      setPendingDelete(null);
+    } catch {
+      setError("Could not delete that audio from browser storage.");
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -194,7 +211,7 @@ export function Player() {
                       variant="ghost"
                       size="sm"
                       aria-label={`Delete ${item.title}`}
-                      onClick={() => remove(item.id)}
+                      onClick={() => setPendingDelete(item)}
                     >
                       Delete
                     </Button>
@@ -241,6 +258,35 @@ export function Player() {
           }}
         />
       </Drawer>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onClose={() => !deleting && setPendingDelete(null)}
+        role="alertdialog"
+        size="sm"
+        title="Delete audio?"
+        description={
+          <>
+            <strong>{pendingDelete?.title}</strong> will be removed from this browser. You&apos;ll
+            need to download it again to play it.
+          </>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              autoFocus
+              disabled={deleting}
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button loading={deleting} onClick={confirmDelete}>
+              Delete
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }

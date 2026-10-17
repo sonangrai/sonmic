@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "sonahang-ui/style.css";
 import "./globals.css";
+import { themeInitScript } from "@/lib/theme";
 import { ServiceWorkerRegister } from "./components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
@@ -20,7 +21,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en">
+    // The inline script sets data-theme before React hydrates, hence the warning suppression.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         {children}
         <ServiceWorkerRegister />

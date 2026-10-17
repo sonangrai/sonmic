@@ -7,6 +7,19 @@
   box-sizing: border-box;
 }
 
+/* Native controls and scrollbars follow the chosen theme too. */
+:root {
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 html,
 body {
   margin: 0;

@@ -35,6 +35,23 @@
   border-radius: 999px;
 }
 
+/* The dropdown trigger is a flex row that would otherwise squeeze its icon. */
+.app-header svg {
+  flex: none;
+}
+
+.app-header-add {
+  white-space: nowrap;
+}
+
+.theme-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 @media (max-width: 720px) {
   .app-header-name,
   .app-header-home {
