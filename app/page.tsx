@@ -1,17 +1,14 @@
-import { Button, Tag, Text } from "sonahang-ui";
+import { Text } from "sonahang-ui";
+import { AudioDownloader } from "./components/AudioDownloader";
 
 export default function Home() {
   return (
     <main className="page">
-      <Tag>Next.js + sonahang-ui</Tag>
       <Text variant="display">sonmic</Text>
       <Text variant="body-lg" color="subtle">
-        Edit <code>app/page.tsx</code> to get started.
+        Paste a YouTube link to save its audio in your browser.
       </Text>
-      <div className="actions">
-        <Button>Get started</Button>
-        <Button variant="secondary">Learn more</Button>
-      </div>
+      <AudioDownloader />
     </main>
   );
 }
