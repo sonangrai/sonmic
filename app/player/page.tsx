@@ -1,7 +1,10 @@
-import React from "react";
+import type { Metadata } from "next";
+import { Player } from "./Player";
 
-function page() {
-  return <div>page</div>;
+export const metadata: Metadata = {
+  title: "Player · sonmic",
+};
+
+export default function PlayerPage() {
+  return <Player />;
 }
-
-export default page;

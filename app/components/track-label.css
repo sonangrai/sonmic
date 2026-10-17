@@ -1,0 +1,22 @@
+.track-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.track-label-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cover {
+  flex: none;
+  border-radius: 0.25rem;
+}
+
+.cover-sm {
+  width: 2.5rem;
+  height: 2.5rem;
+}

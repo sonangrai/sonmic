@@ -1,0 +1,341 @@
+/* Spotify-style shell: header across the top, library + main panels, now-playing bar pinned below. */
+.player-shell {
+  display: grid;
+  grid-template-areas:
+    "header header"
+    "sidebar main"
+    "bar bar";
+  grid-template-columns: 18rem minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  height: 100dvh;
+  padding: 0.5rem;
+  background: var(--color-bg-canvas);
+}
+
+.player-header {
+  grid-area: header;
+  min-width: 0;
+}
+
+/* Panels */
+.player-sidebar,
+.player-main {
+  overflow-y: auto;
+  border-radius: 0.75rem;
+  background: var(--color-bg-surface);
+}
+
+.player-sidebar {
+  grid-area: sidebar;
+  padding: 0.75rem 0.5rem;
+}
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.5rem 0.75rem;
+  color: var(--color-text-subtle);
+}
+
+.sidebar-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-item:hover,
+.sidebar-item[data-active] {
+  background: var(--color-bg-subtle);
+}
+
+/* Main */
+.player-main {
+  grid-area: main;
+  position: relative;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  padding: 3rem 1.5rem 1.5rem;
+  background: linear-gradient(180deg, var(--color-accent-tint-2, var(--color-accent-subtle-bg)), transparent);
+}
+
+.hero-cover {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: clamp(8rem, 20vw, 13rem);
+  height: clamp(8rem, 20vw, 13rem);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, var(--color-accent-500), var(--color-accent-800));
+  color: #fff;
+  font-size: 4rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.hero-title {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.main-actions {
+  padding: 1rem 1.5rem;
+}
+
+.main-message {
+  padding: 0 1.5rem 1rem;
+}
+
+.play-fab {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent-600);
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.1s;
+}
+
+.play-fab:hover:not(:disabled) {
+  transform: scale(1.05);
+  background: var(--color-accent-500);
+}
+
+.play-fab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Track table */
+.track-table {
+  width: 100%;
+  padding: 0 1rem 1.5rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.track-table th {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  text-align: left;
+}
+
+.track-table td {
+  padding: 0.5rem;
+  vertical-align: middle;
+}
+
+.track-table td:first-child {
+  border-radius: 0.375rem 0 0 0.375rem;
+}
+
+.track-table td:last-child {
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.col-index {
+  width: 3rem;
+  text-align: center !important;
+}
+
+.col-date {
+  width: 9rem;
+}
+
+.col-size {
+  width: 6rem;
+}
+
+.col-actions {
+  width: 6rem;
+  text-align: right;
+}
+
+.track-row:hover td,
+.track-row[data-active] td {
+  background: var(--color-bg-subtle);
+}
+
+.track-number {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+}
+
+.track-row[data-active] .track-number {
+  color: var(--color-accent);
+}
+
+.track-play {
+  display: none;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.track-row:hover .track-number,
+.track-row:focus-within .track-number {
+  display: none;
+}
+
+.track-row:hover .track-play,
+.track-row:focus-within .track-play {
+  display: grid;
+}
+
+.track-row .col-actions button {
+  opacity: 0;
+}
+
+.track-row:hover .col-actions button,
+.track-row:focus-within .col-actions button {
+  opacity: 1;
+}
+
+.add-audio-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Now-playing bar */
+.player-bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  min-height: 4.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--color-bg-surface);
+}
+
+/* AudioPlayer brings its own card, so the bar steps back while it's shown. */
+.player-bar:has(.player-bar-audio) {
+  padding: 0;
+  background: none;
+}
+
+.player-bar-audio {
+  width: 100%;
+}
+
+.player-bar-idle {
+  margin: 0 auto;
+}
+
+/* Animated bars for the playing row */
+.equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 0.875rem;
+}
+
+.equalizer span {
+  width: 3px;
+  background: var(--color-accent);
+  animation: eq 0.9s ease-in-out infinite alternate;
+}
+
+.equalizer span:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.equalizer span:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+@keyframes eq {
+  from {
+    height: 20%;
+  }
+  to {
+    height: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .equalizer span {
+    animation: none;
+    height: 60%;
+  }
+}
+
+/* Tablet: narrower library */
+@media (max-width: 1024px) {
+  .player-shell {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+
+  .col-date {
+    display: none;
+  }
+}
+
+/* Phone: library collapses away, main fills the screen */
+@media (max-width: 720px) {
+  .player-shell {
+    grid-template-areas:
+      "header"
+      "main"
+      "bar";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-sidebar,
+  .col-size {
+    display: none;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.5rem 1rem 1rem;
+  }
+
+  .track-table {
+    padding: 0 0.25rem 1rem;
+  }
+
+  .track-row .col-actions button {
+    opacity: 1;
+  }
+}
