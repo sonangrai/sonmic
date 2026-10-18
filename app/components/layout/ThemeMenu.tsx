@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useSyncExternalStore } from "react";
+import { useLayoutEffect } from "react";
 import {
   Dropdown,
   DropdownItem,
@@ -8,7 +8,8 @@ import {
   DropdownTrigger,
   buttonClassNames,
 } from "sonahang-ui";
-import { applyTheme, getTheme, setTheme, subscribeTheme, type Theme } from "@/lib/theme";
+import { applyTheme, setTheme, themeSetting, type Theme } from "@/lib/theme";
+import { useStoredSetting } from "@/lib/useStoredSetting";
 import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "../icons";
 
 const options = [
@@ -18,8 +19,7 @@ const options = [
 ] satisfies { value: Theme; label: string; Icon: typeof SunIcon }[];
 
 export function ThemeMenu() {
-  // The server can't see localStorage, so it renders "system" and the client catches up.
-  const theme = useSyncExternalStore(subscribeTheme, getTheme, () => "system" as const);
+  const theme = useStoredSetting(themeSetting);
   const active = options.find((o) => o.value === theme)!;
 
   // Keeps <html> in sync with changes from other tabs, and re-applies after

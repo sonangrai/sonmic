@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Button, Input, Text, buttonClassNames } from "sonahang-ui";
-import { HomeIcon, MicIcon, SearchIcon } from "../icons";
+import { HomeIcon, MusicIcon, SearchIcon, SettingsIcon } from "../icons";
 import { ThemeMenu } from "./ThemeMenu";
 import "./header.css";
 
@@ -20,7 +22,7 @@ export function Header({ search, onAdd }: HeaderProps) {
     <header className="app-header">
       <Link href="/player" className="app-header-brand">
         <span className="app-header-logo">
-          <MicIcon />
+          <MusicIcon />
         </span>
         <Text as="span" variant="body-lg" weight="bold" className="app-header-name">
           sonmic
@@ -43,6 +45,10 @@ export function Header({ search, onAdd }: HeaderProps) {
           onChange={(e) => search.onChange(e.target.value)}
         />
       )}
+
+      <Link href="/settings" className={buttonClassNames({ variant: "icon" })} aria-label="Settings">
+        <SettingsIcon size={20} />
+      </Link>
 
       <ThemeMenu />
 

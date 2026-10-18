@@ -5,7 +5,7 @@ import { AudioPlayer, Button, Dialog, Drawer, EmptyState, Text } from "sonahang-
 import { deleteAudio, listAudio, type SavedAudio } from "@/lib/audioStore";
 import { formatDate, formatSize } from "@/lib/format";
 import { AddAudioForm } from "../components/AddAudioForm";
-import { LibraryIcon, MicIcon, PlayPauseIcon } from "../components/icons";
+import { LibraryIcon, MusicIcon, PlayPauseIcon } from "../components/icons";
 import { Header } from "../components/layout/Header";
 import { TrackLabel } from "../components/TrackLabel";
 import "./player.css";
@@ -118,7 +118,7 @@ export function Player() {
       <main className="player-main">
         <section className="hero">
           <div className="hero-cover" aria-hidden>
-            <MicIcon />
+            <MusicIcon />
           </div>
           <div className="hero-text">
             <Text variant="caption" weight="medium">

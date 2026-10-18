@@ -1,10 +1,12 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
-import { Alert, Button, Input } from "sonahang-ui";
+import Link from "next/link";
+import { type FormEvent, type ReactNode, useState } from "react";
+import { Alert, Button, Input, Text } from "sonahang-ui";
+import { ApiError, api } from "@/lib/api";
 import { saveAudio, type SavedAudio } from "@/lib/audioStore";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { backendUrlSetting } from "@/lib/backend";
+import { useStoredSetting } from "@/lib/useStoredSetting";
 
 // FastAPI sends `filename*=utf-8''Encoded%20Name.m4a`; fall back to plain `filename="..."`.
 function titleFromDisposition(header: string | null): string | null {
@@ -17,28 +19,20 @@ function titleFromDisposition(header: string | null): string | null {
 
 /** Downloads a YouTube link's audio via the backend and stores it in IndexedDB. */
 export function AddAudioForm({ onSaved }: { onSaved: (item: SavedAudio) => void }) {
+  const backendUrl = useStoredSetting(backendUrlSetting);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/download`, {
+      const res = await api("/download", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const detail = body?.detail;
-        throw new Error(
-          typeof detail === "string" ? detail : "Enter a valid YouTube URL.",
-        );
-      }
-
       const blob = await res.blob();
       const item: SavedAudio = {
         id: crypto.randomUUID(),
@@ -54,11 +48,16 @@ export function AddAudioForm({ onSaved }: { onSaved: (item: SavedAudio) => void 
       onSaved(item);
     } catch (err) {
       setError(
-        err instanceof TypeError
-          ? "Could not reach the backend. Is it running?"
-          : err instanceof Error
-            ? err.message
-            : "Something went wrong.",
+        err instanceof ApiError && err.status === 0 ? (
+          <>
+            {err.message} Is it running? If the address changed, update it in{" "}
+            <Link href="/settings">Settings</Link>.
+          </>
+        ) : err instanceof Error ? (
+          err.message
+        ) : (
+          "Something went wrong."
+        ),
       );
     } finally {
       setLoading(false);
@@ -85,6 +84,13 @@ export function AddAudioForm({ onSaved }: { onSaved: (item: SavedAudio) => void 
         <Alert variant="error" onDismiss={() => setError(null)}>
           {error}
         </Alert>
+      )}
+
+      {backendUrl && (
+        <Text variant="caption" color="subtle">
+          Downloading through {new URL(backendUrl).host} ·{" "}
+          <Link href="/settings">Change in Settings</Link>
+        </Text>
       )}
     </form>
   );

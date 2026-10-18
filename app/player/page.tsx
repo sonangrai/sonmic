@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthGate } from "../components/AuthGate";
 import { Player } from "./Player";
 
 export const metadata: Metadata = {
@@ -6,5 +7,9 @@ export const metadata: Metadata = {
 };
 
 export default function PlayerPage() {
-  return <Player />;
+  return (
+    <AuthGate mode="app">
+      <Player />
+    </AuthGate>
+  );
 }

@@ -2,9 +2,10 @@
 // so audio saved in IndexedDB stays playable without a connection.
 // Bump VERSION to drop old caches after a deploy that changes cached files.
 
-const VERSION = "v2";
+const VERSION = "v6";
 const CACHE = `sonmic-${VERSION}`;
-const PRECACHE = ["/player", "/manifest.webmanifest", "/icons/icon-192.png"];
+// Pages are cached as they're visited (network first, below) rather than precached.
+const PRECACHE = ["/manifest.webmanifest", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -54,7 +55,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          if (res.ok) {
+          // A redirected response (e.g. to /login) must not be stored under this page's URL.
+          if (res.ok && !res.redirected) {
             const copy = res.clone();
             caches.open(CACHE).then((cache) => cache.put(request, copy));
           }
