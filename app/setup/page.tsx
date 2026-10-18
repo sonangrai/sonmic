@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { privatePageMetadata } from "@/lib/site";
 import { AuthCard } from "../components/AuthCard";
 import { AuthGate } from "../components/AuthGate";
 import { SetupForm } from "./SetupForm";
 
-export const metadata: Metadata = {
-  title: "Connect · sonmic",
-};
+export const metadata: Metadata = privatePageMetadata(
+  "Connect to your backend",
+  "Connect sonmic to the backend server that downloads audio for your family.",
+);
 
 export default function SetupPage() {
   return (

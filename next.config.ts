@@ -4,10 +4,6 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
-  async redirects() {
-    // The player is the app; there's no separate landing page.
-    return [{ source: "/", destination: "/player", permanent: false }];
-  },
   async headers() {
     return [
       {

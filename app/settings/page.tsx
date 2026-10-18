@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { privatePageMetadata } from "@/lib/site";
 import { Text } from "sonahang-ui";
 import { AccountSettings } from "../components/AccountSettings";
 import { AuthGate } from "../components/AuthGate";
@@ -6,9 +7,10 @@ import { BackendSettings } from "../components/BackendSettings";
 import { Header } from "../components/layout/Header";
 import "./settings.css";
 
-export const metadata: Metadata = {
-  title: "Settings · sonmic",
-};
+export const metadata: Metadata = privatePageMetadata(
+  "Settings",
+  "Choose the backend server and manage your sonmic account.",
+);
 
 export default function SettingsPage() {
   return (
