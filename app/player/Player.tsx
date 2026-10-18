@@ -1,64 +1,176 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AudioPlayer, Button, Dialog, Drawer, EmptyState, Text } from "sonahang-ui";
+import {
+  AudioPlaylist,
+  type AudioTrack,
+  Button,
+  Dialog,
+  Drawer,
+  EmptyState,
+  Text,
+} from "sonahang-ui";
 import { deleteAudio, listAudio, type SavedAudio } from "@/lib/audioStore";
 import { formatDate, formatSize } from "@/lib/format";
+import { lastPlayedSetting } from "@/lib/lastPlayed";
+import { playModeSetting } from "@/lib/playMode";
+import { useStoredSetting } from "@/lib/useStoredSetting";
 import { AddAudioForm } from "../components/AddAudioForm";
 import { LibraryIcon, MusicIcon, PlayPauseIcon } from "../components/icons";
 import { Header } from "../components/layout/Header";
 import { TrackLabel } from "../components/TrackLabel";
 import "./player.css";
 
+// Each track gets one object URL for as long as it's in the library. Rebuilding them
+// whenever the list changed gave the playing track a new src and cut it off.
+type LibraryItem = SavedAudio & { url: string };
+const withUrl = (item: SavedAudio): LibraryItem => ({ ...item, url: URL.createObjectURL(item.blob) });
+
+/** Jumps to `time`, unless the track had (almost) finished: then it starts from the top. */
+function resumeFrom(audio: HTMLAudioElement, time: number) {
+  if (time < audio.duration - 2) audio.currentTime = time;
+}
+
 export function Player() {
-  const [items, setItems] = useState<SavedAudio[]>([]);
+  const [items, setItems] = useState<LibraryItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const playMode = useStoredSetting(playModeSetting);
+  // The playlist's <audio> element, as state so effects can attach to it once it exists.
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  // Set when the user picks a track here; the playlist only auto-plays its own moves.
+  const playOnSelect = useRef(false);
   const [adding, setAdding] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<SavedAudio | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<LibraryItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Load once per page instance. Next keeps this page alive (hidden) while you visit
+  // other pages and re-runs effects on return; reloading then gave every track a new
+  // object URL, which swapped the playing track's src and stopped it.
+  const libraryLoaded = useRef(false);
   useEffect(() => {
+    if (libraryLoaded.current) return;
+    libraryLoaded.current = true;
     listAudio()
-      .then(setItems)
+      .then((list) => {
+        setItems(list.map(withUrl));
+        // Reload the track from last time, if it's still in the library.
+        const last = lastPlayedSetting.get();
+        if (last && list.some((item) => item.id === last.id)) setSelectedId(last.id);
+      })
       .catch(() => setError("Could not read saved audio from browser storage."))
       .finally(() => setLoaded(true));
   }, []);
 
-  // One object URL per blob; revoked when the list changes or the page unmounts.
-  const urls = useMemo(
-    () => new Map(items.map((item) => [item.id, URL.createObjectURL(item.blob)])),
-    [items],
-  );
-  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
+  // Object URLs are released when a track is deleted, and by the browser when the page
+  // closes. Not on effect cleanup: Next keeps this page alive (hidden) while you visit
+  // other pages, so cleanups run on a trip to Settings and revoking there broke playback.
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? items.filter((i) => i.title.toLowerCase().includes(q)) : items;
   }, [items, query]);
 
-  const currentIndex = items.findIndex((i) => i.id === currentId);
-  const current = currentIndex >= 0 ? items[currentIndex] : null;
+  // The loaded track: the one picked, else the first, so the bar (and its play modes) is
+  // ready before anything has played.
+  const selectedIndex = items.findIndex((i) => i.id === selectedId);
+  const currentIndex = selectedIndex >= 0 ? selectedIndex : items.length > 0 ? 0 : -1;
+  const currentId = currentIndex >= 0 ? items[currentIndex].id : null;
   const totalSize = items.reduce((sum, i) => sum + i.blob.size, 0);
   const isPlaying = (id: string) => id === currentId && playing;
 
+  // The playlist plays the whole library in saved order; search only filters the table.
+  const tracks = useMemo<AudioTrack[]>(
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        src: item.url,
+        title: item.title,
+        subtitle: formatSize(item.blob.size),
+      })),
+    [items],
+  );
+
+  // AudioPlaylist has no play/pause callbacks, so follow the element itself.
+  useEffect(() => {
+    if (!audio) return;
+    const sync = () => setPlaying(!audio.paused);
+    const events = ["play", "pause", "ended", "emptied"] as const;
+    events.forEach((e) => audio.addEventListener(e, sync));
+    return () => events.forEach((e) => audio.removeEventListener(e, sync));
+  }, [audio]);
+
+  // Remember the loaded track and its position: on switching tracks, every few seconds
+  // while playing, on pause, and when the page is hidden or left.
+  useEffect(() => {
+    if (!audio || !currentId) return;
+
+    // Pick up where this track was left, but only on a freshly loaded element (a new
+    // visit or a reload). Coming back from another page, the same element is still
+    // here and may have kept playing; seeking then would rewind it.
+    const saved = lastPlayedSetting.get();
+    let position = saved?.id === currentId ? saved.time : 0;
+    const seek = () => resumeFrom(audio, position);
+    if (position > 0 && audio.currentTime < 0.5) {
+      if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) seek();
+      else audio.addEventListener("loadedmetadata", seek, { once: true });
+    }
+
+    // Tracked here rather than read at save time: by teardown the element may be reset.
+    const track = () => {
+      if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) position = audio.currentTime;
+    };
+    const save = () => lastPlayedSetting.set({ id: currentId, time: position });
+    let lastSaved = 0;
+    const saveWhilePlaying = () => {
+      track();
+      if (Date.now() - lastSaved < 3000) return;
+      lastSaved = Date.now();
+      save();
+    };
+    const saveOnPause = () => {
+      track();
+      save();
+    };
+    const saveIfHidden = () => {
+      if (document.visibilityState === "hidden") save();
+    };
+
+    // Start from the element's real position: after a seek above, or a track that kept
+    // playing while another page was open.
+    track();
+    save();
+    audio.addEventListener("timeupdate", saveWhilePlaying);
+    audio.addEventListener("pause", saveOnPause);
+    document.addEventListener("visibilitychange", saveIfHidden);
+    window.addEventListener("pagehide", save);
+    return () => {
+      audio.removeEventListener("loadedmetadata", seek);
+      audio.removeEventListener("timeupdate", saveWhilePlaying);
+      audio.removeEventListener("pause", saveOnPause);
+      document.removeEventListener("visibilitychange", saveIfHidden);
+      window.removeEventListener("pagehide", save);
+      save();
+    };
+  }, [audio, currentId]);
+
+  // Runs after the new track's src is committed, so play() starts the right one.
+  useEffect(() => {
+    if (!playOnSelect.current || !audio) return;
+    playOnSelect.current = false;
+    audio.play().catch(() => {});
+  }, [currentIndex, audio]);
+
   function play(id: string) {
     if (id === currentId) {
-      const audio = audioRef.current;
-      if (audio) void (audio.paused ? audio.play() : audio.pause());
+      if (audio) void (audio.paused ? audio.play().catch(() => {}) : audio.pause());
       return;
     }
-    setCurrentId(id);
-  }
-
-  function step(delta: 1 | -1) {
-    if (items.length === 0) return;
-    const next = (currentIndex + delta + items.length) % items.length;
-    setCurrentId(items[next].id);
+    playOnSelect.current = true;
+    setSelectedId(id);
   }
 
   async function confirmDelete() {
@@ -68,10 +180,11 @@ export function Player() {
     try {
       await deleteAudio(id);
       if (id === currentId) {
-        // The player unmounts with the track, so no pause event will arrive.
-        setCurrentId(null);
-        setPlaying(false);
+        // Stop rather than jump into another track's audio.
+        audio?.pause();
+        setSelectedId(null);
       }
+      URL.revokeObjectURL(pendingDelete.url);
       setItems((prev) => prev.filter((i) => i.id !== id));
       setPendingDelete(null);
     } catch {
@@ -138,7 +251,7 @@ export function Player() {
             className="play-fab"
             aria-label={playing ? "Pause" : "Play"}
             disabled={items.length === 0}
-            onClick={() => play(currentId ?? items[0].id)}
+            onClick={() => currentId && play(currentId)}
           >
             <PlayPauseIcon playing={playing} />
           </button>
@@ -224,23 +337,23 @@ export function Player() {
       </main>
 
       <footer className="player-bar">
-        {current ? (
-          <AudioPlayer
-            ref={audioRef}
+        {tracks.length > 0 ? (
+          // Previous/Next, end-of-track and the play-mode button (in order, repeat all,
+          // repeat one, shuffle) are handled by the playlist; it reports moves here.
+          <AudioPlaylist
+            ref={setAudio}
             className="player-bar-audio"
-            src={urls.get(current.id)!}
-            title={current.title}
-            subtitle={formatSize(current.blob.size)}
-            autoPlay
-            onPrevious={() => step(-1)}
-            onNext={() => step(1)}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => (currentIndex < items.length - 1 ? step(1) : setPlaying(false))}
+            label="Saved Audio"
+            tracks={tracks}
+            trackIndex={currentIndex}
+            onTrackChange={(index) => setSelectedId(items[index].id)}
+            playMode={playMode}
+            onPlayModeChange={playModeSetting.set}
+            hideTrackList
           />
         ) : (
           <Text variant="body-sm" color="subtle" className="player-bar-idle">
-            Pick a track to start listening.
+            Add some audio to start listening.
           </Text>
         )}
       </footer>
@@ -253,7 +366,7 @@ export function Player() {
       >
         <AddAudioForm
           onSaved={(item) => {
-            setItems((prev) => [item, ...prev]);
+            setItems((prev) => [withUrl(item), ...prev]);
             setAdding(false);
           }}
         />
