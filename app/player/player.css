@@ -77,7 +77,8 @@
   background: linear-gradient(180deg, var(--color-accent-tint-2, var(--color-accent-subtle-bg)), transparent);
 }
 
-.hero-cover {
+.hero-cover,
+.now-playing-cover {
   display: grid;
   flex: none;
   place-items: center;
@@ -257,6 +258,98 @@
   width: 100%;
 }
 
+/* The playlist lives in a node that moves between the bar and the now-playing dialog. */
+.player-bar-slot,
+.player-host {
+  display: contents;
+}
+
+.player-bar-expand {
+  display: none;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: 0.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+}
+
+.player-bar-expand:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+}
+
+/* Now playing: the same player, scaled up into a full-screen sheet on phones */
+.now-playing .sh-dialog__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.5rem;
+}
+
+.now-playing-cover {
+  width: min(100%, 20rem, 45dvh);
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  font-size: clamp(4rem, 20vw, 7rem);
+}
+
+.now-playing .sh-audio {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Title and seek bar above the transport, like a phone music app. */
+.now-playing .sh-audio__body {
+  order: -1;
+  gap: 1rem;
+}
+
+.now-playing .sh-audio__title {
+  font-size: var(--font-size-xl, 1.25rem);
+  white-space: normal;
+}
+
+.now-playing .sh-audio__subtitle {
+  font-size: var(--font-size-sm);
+}
+
+.now-playing .sh-audio__transport {
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.now-playing .sh-audio__play {
+  width: 4rem;
+  height: 4rem;
+}
+
+.now-playing .sh-audio__play svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.now-playing .sh-audio__skip {
+  width: 3rem;
+  height: 3rem;
+}
+
+.now-playing .sh-audio__skip svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .player-bar-idle {
   margin: 0 auto;
 }
@@ -337,5 +430,14 @@
 
   .track-row .col-actions button {
     opacity: 1;
+  }
+
+  /* Tapping the bar opens the now-playing dialog. */
+  .player-bar {
+    cursor: pointer;
+  }
+
+  .player-bar-expand {
+    display: grid;
   }
 }

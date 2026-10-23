@@ -179,6 +179,14 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Icon size={20} {...props}>
+      <path d="m6 15 6-6 6 6" />
+    </Icon>
+  );
+}
+
 export function PlayPauseIcon({ playing, ...props }: IconProps & { playing: boolean }) {
   return playing ? <PauseIcon {...props} /> : <PlayIcon {...props} />;
 }

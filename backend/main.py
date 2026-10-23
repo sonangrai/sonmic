@@ -32,6 +32,9 @@ ALLOWED_ORIGINS = [
 MAX_DURATION_SECONDS = int(os.environ.get("MAX_DURATION_SECONDS", 30 * 60))
 MAX_FILESIZE_BYTES = int(os.environ.get("MAX_FILESIZE_MB", 150)) * 1024 * 1024
 
+# Optional proxy for reaching YouTube, e.g. when hosted on a cloud IP that YouTube blocks.
+YTDLP_PROXY = os.environ.get("YTDLP_PROXY", "").strip() or None
+
 app = FastAPI(title="sonmic backend")
 auth.init_db()
 app.include_router(auth.router)
@@ -77,6 +80,8 @@ def download_audio(url: str) -> tuple[Path, str]:
         ),
         "max_filesize": MAX_FILESIZE_BYTES,
     }
+    if YTDLP_PROXY:
+        opts["proxy"] = YTDLP_PROXY
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)

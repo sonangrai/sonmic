@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AudioPlaylist,
   type AudioTrack,
@@ -16,7 +17,7 @@ import { lastPlayedSetting } from "@/lib/lastPlayed";
 import { playModeSetting } from "@/lib/playMode";
 import { useStoredSetting } from "@/lib/useStoredSetting";
 import { AddAudioForm } from "../components/AddAudioForm";
-import { LibraryIcon, MusicIcon, PlayPauseIcon } from "../components/icons";
+import { ChevronUpIcon, LibraryIcon, MusicIcon, PlayPauseIcon } from "../components/icons";
 import { Header } from "../components/layout/Header";
 import { TrackLabel } from "../components/TrackLabel";
 import "./player.css";
@@ -29,6 +30,15 @@ const withUrl = (item: SavedAudio): LibraryItem => ({ ...item, url: URL.createOb
 /** Jumps to `time`, unless the track had (almost) finished: then it starts from the top. */
 function resumeFrom(audio: HTMLAudioElement, time: number) {
   if (time < audio.duration - 2) audio.currentTime = time;
+}
+
+// The phone layout in player.css, where tapping the bar opens the now-playing view.
+const PHONE_QUERY = "(max-width: 720px)";
+
+function createPlayerHost() {
+  const node = document.createElement("div");
+  node.className = "player-host";
+  return node;
 }
 
 export function Player() {
@@ -46,6 +56,33 @@ export function Player() {
   const [adding, setAdding] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<LibraryItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
+  // The playlist renders into this node, which moves between the bar and the
+  // now-playing dialog. A second playlist there would mean a second <audio> and cut
+  // playback; moving the node keeps the same element, mid-track.
+  const [playerNode, setPlayerNode] = useState<HTMLDivElement | null>(null);
+  const [barSlot, setBarSlot] = useState<HTMLDivElement | null>(null);
+  const [nowPlayingSlot, setNowPlayingSlot] = useState<HTMLDivElement | null>(null);
+
+  // Created once the bar is in the page (not during render, which also runs on the server).
+  const barSlotRef = useCallback((slot: HTMLDivElement | null) => {
+    setBarSlot(slot);
+    if (slot) setPlayerNode((node) => node ?? createPlayerHost());
+  }, []);
+
+  useEffect(() => {
+    const slot = nowPlayingOpen ? nowPlayingSlot : barSlot;
+    if (playerNode && slot && playerNode.parentNode !== slot) slot.appendChild(playerNode);
+  }, [playerNode, barSlot, nowPlayingSlot, nowPlayingOpen]);
+
+  // The dialog is a phone view; widening the window puts the player back in the bar.
+  useEffect(() => {
+    if (!nowPlayingOpen) return;
+    const phone = window.matchMedia(PHONE_QUERY);
+    const closeIfWide = () => !phone.matches && setNowPlayingOpen(false);
+    phone.addEventListener("change", closeIfWide);
+    return () => phone.removeEventListener("change", closeIfWide);
+  }, [nowPlayingOpen]);
 
   // Load once per page instance. Next keeps this page alive (hidden) while you visit
   // other pages and re-runs effects on return; reloading then gave every track a new
@@ -171,6 +208,13 @@ export function Player() {
     }
     playOnSelect.current = true;
     setSelectedId(id);
+  }
+
+  function openNowPlayingFromBar(event: MouseEvent) {
+    if (tracks.length === 0 || !window.matchMedia(PHONE_QUERY).matches) return;
+    // Leave the bar's own controls (play, skip, seek, volume) to do their job.
+    if ((event.target as Element).closest("button, input, [role='slider']")) return;
+    setNowPlayingOpen(true);
   }
 
   async function confirmDelete() {
@@ -336,27 +380,55 @@ export function Player() {
         )}
       </main>
 
-      <footer className="player-bar">
+      <footer className="player-bar" onClick={openNowPlayingFromBar}>
+        <div ref={barSlotRef} className="player-bar-slot" />
+        {playerNode &&
+          tracks.length > 0 &&
+          createPortal(
+            // Previous/Next, end-of-track and the play-mode button (in order, repeat all,
+            // repeat one, shuffle) are handled by the playlist; it reports moves here.
+            <AudioPlaylist
+              ref={setAudio}
+              className="player-bar-audio"
+              label="Saved Audio"
+              tracks={tracks}
+              trackIndex={currentIndex}
+              onTrackChange={(index) => setSelectedId(items[index].id)}
+              playMode={playMode}
+              onPlayModeChange={playModeSetting.set}
+              hideTrackList
+            />,
+            playerNode,
+          )}
         {tracks.length > 0 ? (
-          // Previous/Next, end-of-track and the play-mode button (in order, repeat all,
-          // repeat one, shuffle) are handled by the playlist; it reports moves here.
-          <AudioPlaylist
-            ref={setAudio}
-            className="player-bar-audio"
-            label="Saved Audio"
-            tracks={tracks}
-            trackIndex={currentIndex}
-            onTrackChange={(index) => setSelectedId(items[index].id)}
-            playMode={playMode}
-            onPlayModeChange={playModeSetting.set}
-            hideTrackList
-          />
+          <button
+            type="button"
+            className="player-bar-expand"
+            aria-label="Open now playing"
+            onClick={() => setNowPlayingOpen(true)}
+          >
+            <ChevronUpIcon />
+          </button>
         ) : (
           <Text variant="body-sm" color="subtle" className="player-bar-idle">
             Add some audio to start listening.
           </Text>
         )}
       </footer>
+
+      <Dialog
+        open={nowPlayingOpen && tracks.length > 0}
+        onClose={() => setNowPlayingOpen(false)}
+        size="fullscreen"
+        title="Now playing"
+        closeLabel="Close now playing"
+        className="now-playing"
+      >
+        <div className="now-playing-cover" aria-hidden>
+          <MusicIcon />
+        </div>
+        <div ref={setNowPlayingSlot} className="now-playing-slot" />
+      </Dialog>
 
       <Drawer
         open={adding}
