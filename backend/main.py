@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import yt_dlp
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, HttpUrl
 from starlette.background import BackgroundTask
 
@@ -20,6 +20,11 @@ ALLOWED_HOSTS = {
     "music.youtube.com",
     "youtu.be",
 }
+
+# Thumbnails are only fetched from YouTube's image hosts, so /thumbnail can't be used
+# to make the server request arbitrary addresses.
+THUMBNAIL_HOST_SUFFIX = ".ytimg.com"
+MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
 
 # Websites allowed to call this API from a browser. Set in backend/.env (see .env.example).
 ALLOWED_ORIGINS = [
@@ -44,7 +49,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
-    expose_headers=["Content-Disposition"],
+    expose_headers=["Content-Disposition", "X-Thumbnail-Url"],
 )
 
 
@@ -62,8 +67,8 @@ def format_limit(seconds: int) -> str:
     return f"{seconds // 60} minutes" if seconds >= 120 else f"{seconds} seconds"
 
 
-def download_audio(url: str) -> tuple[Path, str]:
-    """Download the best audio stream into a fresh temp dir. Returns (file path, title)."""
+def download_audio(url: str) -> tuple[Path, str, str | None]:
+    """Download the best audio stream into a fresh temp dir. Returns (file path, title, thumbnail URL)."""
     tmp_dir = Path(tempfile.mkdtemp(prefix="sonmic-"))
     opts = {
         # Prefer YouTube's AAC stream as-is (no re-encode); fall back if a video lacks one.
@@ -100,7 +105,29 @@ def download_audio(url: str) -> tuple[Path, str]:
             )
         raise HTTPException(status_code=422, detail="This audio is too large to download")
 
-    return files[0], info.get("title") or info["id"]
+    return files[0], info.get("title") or info["id"], info.get("thumbnail")
+
+
+def fetch_thumbnail(src: str) -> tuple[bytes, str]:
+    """Fetch a YouTube thumbnail (through the proxy, if set). Returns (image bytes, content type)."""
+    parsed = urlparse(src)
+    host = parsed.hostname or ""
+    if parsed.scheme != "https" or not host.endswith(THUMBNAIL_HOST_SUFFIX):
+        raise HTTPException(status_code=400, detail="Only YouTube thumbnails are supported")
+
+    opts = {"quiet": True, "no_warnings": True, "socket_timeout": 15}
+    if YTDLP_PROXY:
+        opts["proxy"] = YTDLP_PROXY
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl, ydl.urlopen(src) as res:
+            content_type = res.headers.get("Content-Type", "")
+            data = res.read(MAX_THUMBNAIL_BYTES + 1)
+    except yt_dlp.utils.YoutubeDLError as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch the thumbnail: {e}") from e
+
+    if not content_type.startswith("image/") or len(data) > MAX_THUMBNAIL_BYTES:
+        raise HTTPException(status_code=502, detail="The thumbnail isn't a usable image")
+    return data, content_type
 
 
 # Public on purpose: the app checks it before login to confirm the address is a sonmic backend.
@@ -115,12 +142,21 @@ def download(req: DownloadRequest, _user: str = Depends(auth.current_user)):
     url = str(req.url)
     validate_youtube_url(url)
 
-    path, title = download_audio(url)
+    path, title, thumbnail = download_audio(url)
     safe_title = "".join(c for c in title if c not in '\\/:*?"<>|').strip() or "audio"
 
+    # The app fetches the image itself from /thumbnail; it's optional, so older apps ignore it.
+    headers = {"X-Thumbnail-Url": thumbnail} if thumbnail else None
     return FileResponse(
         path,
         filename=f"{safe_title}{path.suffix}",
         media_type="application/octet-stream",
+        headers=headers,
         background=BackgroundTask(shutil.rmtree, path.parent, ignore_errors=True),
     )
+
+
+@app.get("/thumbnail")
+def thumbnail(src: str, _user: str = Depends(auth.current_user)):
+    data, content_type = fetch_thumbnail(src)
+    return Response(data, media_type=content_type)

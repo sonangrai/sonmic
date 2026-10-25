@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { Alert, Button, Input, Text } from "sonahang-ui";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, fetchThumbnail } from "@/lib/api";
 import { saveAudio, type SavedAudio } from "@/lib/audioStore";
 import { backendUrlSetting } from "@/lib/backend";
 import { useStoredSetting } from "@/lib/useStoredSetting";
@@ -33,12 +33,16 @@ export function AddAudioForm({ onSaved }: { onSaved: (item: SavedAudio) => void 
         method: "POST",
         body: JSON.stringify({ url: url.trim() }),
       });
-      const blob = await res.blob();
+      const [blob, thumbnail] = await Promise.all([
+        res.blob(),
+        fetchThumbnail(res.headers.get("X-Thumbnail-Url")),
+      ]);
       const item: SavedAudio = {
         id: crypto.randomUUID(),
         title: titleFromDisposition(res.headers.get("Content-Disposition")) ?? "Untitled",
         sourceUrl: url.trim(),
         blob,
+        ...(thumbnail && { thumbnail }),
         createdAt: Date.now(),
       };
       await saveAudio(item);

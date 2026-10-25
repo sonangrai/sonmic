@@ -35,6 +35,17 @@ export async function api(path: string, init: RequestInit = {}): Promise<Respons
   throw new ApiError(typeof detail === "string" ? detail : "Something went wrong.", res.status);
 }
 
+/** Fetches a track's thumbnail through the backend. Null if it can't: the cover is optional. */
+export async function fetchThumbnail(src: string | null): Promise<Blob | null> {
+  if (!src) return null;
+  try {
+    const res = await api(`/thumbnail?src=${encodeURIComponent(src)}`);
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
 export async function login(username: string, password: string): Promise<Session> {
   const res = await api("/auth/login", {
     method: "POST",

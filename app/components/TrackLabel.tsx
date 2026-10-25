@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Text } from "sonahang-ui";
 import "./track-label.css";
 
-// No artwork comes with the audio, so derive a stable gradient from the title.
+// Tracks without a thumbnail get a stable gradient derived from the title.
 function coverStyle(seed: string): CSSProperties {
   let hash = 0;
   for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
@@ -12,19 +12,27 @@ function coverStyle(seed: string): CSSProperties {
   };
 }
 
-/** Gradient cover, title (accent when active), and an optional second line. */
+/** Cover (thumbnail, else a gradient), title (accent when active), and an optional second line. */
 export function TrackLabel({
   title,
+  cover,
   active = false,
   subtitle,
 }: {
   title: string;
+  /** Object URL of the track's thumbnail. */
+  cover?: string;
   active?: boolean;
   subtitle?: ReactNode;
 }) {
   return (
     <span className="track-label">
-      <span className="cover cover-sm" style={coverStyle(title)} aria-hidden />
+      {cover ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a local object URL; nothing to optimize
+        <img className="cover cover-sm" src={cover} alt="" />
+      ) : (
+        <span className="cover cover-sm" style={coverStyle(title)} aria-hidden />
+      )}
       <span className="track-label-text">
         <Text
           as="span"

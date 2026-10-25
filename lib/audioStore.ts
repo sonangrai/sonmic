@@ -8,6 +8,8 @@ export type SavedAudio = {
   title: string;
   sourceUrl: string;
   blob: Blob;
+  /** Cover image. Missing on tracks saved before thumbnails, or when it couldn't be fetched. */
+  thumbnail?: Blob;
   createdAt: number;
 };
 

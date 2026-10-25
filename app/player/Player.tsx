@@ -24,8 +24,12 @@ import "./player.css";
 
 // Each track gets one object URL for as long as it's in the library. Rebuilding them
 // whenever the list changed gave the playing track a new src and cut it off.
-type LibraryItem = SavedAudio & { url: string };
-const withUrl = (item: SavedAudio): LibraryItem => ({ ...item, url: URL.createObjectURL(item.blob) });
+type LibraryItem = SavedAudio & { url: string; coverUrl?: string };
+const withUrl = (item: SavedAudio): LibraryItem => ({
+  ...item,
+  url: URL.createObjectURL(item.blob),
+  coverUrl: item.thumbnail && URL.createObjectURL(item.thumbnail),
+});
 
 /** Jumps to `time`, unless the track had (almost) finished: then it starts from the top. */
 function resumeFrom(audio: HTMLAudioElement, time: number) {
@@ -116,6 +120,7 @@ export function Player() {
   const selectedIndex = items.findIndex((i) => i.id === selectedId);
   const currentIndex = selectedIndex >= 0 ? selectedIndex : items.length > 0 ? 0 : -1;
   const currentId = currentIndex >= 0 ? items[currentIndex].id : null;
+  const currentCover = currentIndex >= 0 ? items[currentIndex].coverUrl : undefined;
   const totalSize = items.reduce((sum, i) => sum + i.blob.size, 0);
   const isPlaying = (id: string) => id === currentId && playing;
 
@@ -229,6 +234,7 @@ export function Player() {
         setSelectedId(null);
       }
       URL.revokeObjectURL(pendingDelete.url);
+      if (pendingDelete.coverUrl) URL.revokeObjectURL(pendingDelete.coverUrl);
       setItems((prev) => prev.filter((i) => i.id !== id));
       setPendingDelete(null);
     } catch {
@@ -263,6 +269,7 @@ export function Player() {
               >
                 <TrackLabel
                   title={item.title}
+                  cover={item.coverUrl}
                   active={item.id === currentId}
                   subtitle={`Audio · ${formatSize(item.blob.size)}`}
                 />
@@ -351,7 +358,11 @@ export function Player() {
                     </button>
                   </td>
                   <td>
-                    <TrackLabel title={item.title} active={item.id === currentId} />
+                    <TrackLabel
+                      title={item.title}
+                      cover={item.coverUrl}
+                      active={item.id === currentId}
+                    />
                   </td>
                   <td className="col-date">
                     <Text variant="body-sm" color="subtle">
@@ -425,7 +436,12 @@ export function Player() {
         className="now-playing"
       >
         <div className="now-playing-cover" aria-hidden>
-          <MusicIcon />
+          {currentCover ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a local object URL; nothing to optimize
+            <img src={currentCover} alt="" />
+          ) : (
+            <MusicIcon />
+          )}
         </div>
         <div ref={setNowPlayingSlot} className="now-playing-slot" />
       </Dialog>
